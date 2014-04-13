@@ -207,6 +207,47 @@ exports["EHLO setting"] = {
     }
 };
 
+exports["XCLIENT extension"] = {
+    setUp: function (callback) {
+
+        this.smtp = new simplesmtp.createServer({disableDNSValidation: true});
+        this.smtp.listen(PORT_NUMBER, function(err){
+            if(err){
+                throw err;
+            }else{
+                callback();
+            }
+        });
+
+    },
+    tearDown: function (callback) {
+        this.smtp.end(callback);
+    },
+    "correct response": function(test) {
+        runClientMockup(PORT_NUMBER, "localhost", ["EHLO foo", "XCLIENT ADDR=127.0.0.2"], function(resp){
+            test.equal("220 success",resp.toString("utf-8").trim());
+            test.done();
+        });
+    },
+    "correct parse and save attributes": function(test) {
+        var messages = [
+            "EHLO foo",
+            "XCLIENT ADDR=127.0.0.1 LOGIN=user@example.org",
+            "EHLO foo",
+            "MAIL FROM:<john.doe@example.org>",
+            "RCPT TO:<jane.doe@example.org>",
+            "DATA"
+        ]
+        this.smtp.on("startData", function(envelope){
+            test.ok("xclient" in envelope);
+            test.equal(envelope.xclient.ADDR, "127.0.0.1");
+            test.equal(envelope.xclient.LOGIN, "user@example.org");
+            test.done();
+        });
+        runClientMockup(PORT_NUMBER, "localhost", messages);
+    }
+};
+
 exports["Client disconnect"] = {
 
     "Client disconnect": function(test){
